@@ -23,21 +23,26 @@ def add_captions_to_video(caption_segments, video_file):
     
     # Generator function that returns a styled TextClip for a given subtitle string.
     generator = lambda txt: TextClip(
-        text=txt, font='Arial', font_size=24, size=(48, 48), color='white',
-        stroke_color='black', method='caption'
+        text=txt, font='Arial', font_size=64, color='white',
+        stroke_color='black', stroke_width=8, method='caption', size=(int(video.w * 0.8), None),
     )
     
     # Create the subtitles clip.
-    subtitles = SubtitlesClip(subs, make_textclip=generator, encoding="utf-8")
+    subtitles = SubtitlesClip(subs, make_textclip=generator).with_position("center", "bottom")
     
     # Composite the video with the subtitles overlay.
     video_with_captions = CompositeVideoClip([video, subtitles])
     
     # Write the final video file.
     video_with_captions.write_videofile(
-        "output_video.mp4", fps=video.fps,
-        temp_audiofile="temp-audio.m4a", remove_temp=True,
-        codec="libx264", audio_codec="aac"
+        "output_video.mp4",
+        fps=video.fps,
+        codec="mpeg4",  # Faster codec
+        audio_codec="aac",
+        preset="ultrafast",
+        threads=12,  # Adjust based on your CPU
+        bitrate="2000k",  # Lower bitrate
+        audio=False  # Uncomment if you don't need audio
     )
 
 
