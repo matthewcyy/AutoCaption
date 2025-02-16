@@ -1,4 +1,5 @@
 import argparse
+import json
 import logging
 import moviepy
 import whisper
@@ -6,33 +7,51 @@ from moviepy import CompositeVideoClip, TextClip, VideoFileClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 from whisper import Whisper
 
-def generate_captions(whisper_model: Whisper, audio_file, captions_file = ""):
+
+def generate_captions(whisper_model: Whisper, audio_file, captions_file=""):
     print("transcribing...")
     result = whisper_model.transcribe(audio_file, word_timestamps=True)
     print("transcription results", result)
+    segments_json = [
+        {"start": segment["start"], "end": segment["end"], "text": segment["text"]}
+        for segment in result["segments"]
+    ]
+    with open("captions.json", "w") as json_file:
+        json.dump(segments_json, json_file, indent=4)
     for segment in result["segments"]:
-        print(f"Start: {segment['start']}, End: {segment['end']}, Text: {segment['text']}")
+        print(
+            f"Start: {segment['start']}, End: {segment['end']}, Text: {segment['text']}"
+        )
     return result["segments"]
+
 
 def add_captions_to_video(caption_segments, video_file):
     # Load the video clip.
     video = VideoFileClip(video_file)
-    
+
     # Convert caption_segments (dicts) into a list of ((start, end), text) tuples.
     subs = [((seg["start"], seg["end"]), seg["text"]) for seg in caption_segments]
-    
+
     # Generator function that returns a styled TextClip for a given subtitle string.
     generator = lambda txt: TextClip(
-        text=txt, font='Arial', font_size=64, color='white',
-        stroke_color='black', stroke_width=8, method='caption', size=(int(video.w * 0.8), None),
+        text=txt,
+        font="Arial",
+        font_size=64,
+        color="white",
+        stroke_color="black",
+        stroke_width=8,
+        method="caption",
+        size=(int(video.w * 0.8), None),
     )
-    
+
     # Create the subtitles clip.
-    subtitles = SubtitlesClip(subs, make_textclip=generator).with_position("center", "bottom")
-    
+    subtitles = SubtitlesClip(subs, make_textclip=generator).with_position(
+        "center", "bottom"
+    )
+
     # Composite the video with the subtitles overlay.
     video_with_captions = CompositeVideoClip([video, subtitles])
-    
+
     # Write the final video file.
     video_with_captions.write_videofile(
         "output_video.mp4",
@@ -42,7 +61,7 @@ def add_captions_to_video(caption_segments, video_file):
         preset="ultrafast",
         threads=12,  # Adjust based on your CPU
         bitrate="2000k",  # Lower bitrate
-        audio=False  # Uncomment if you don't need audio
+        audio=False,  # Uncomment if you don't need audio
     )
 
 
@@ -54,9 +73,10 @@ def main(video_file, captions_file):
         audio_file.audio.write_audiofile("audio_file.mp3")
         caption_segments = generate_captions(model, "audio_file.mp3")
         add_captions_to_video(caption_segments, video_file)
-        return 
+        return
     except Exception as e:
         logging.exception(f"Could not load file, {str(e)}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
