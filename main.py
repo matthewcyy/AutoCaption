@@ -6,6 +6,7 @@ import whisper
 from moviepy import CompositeVideoClip, TextClip, VideoFileClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 from whisper import Whisper
+import logging
 
 
 def generate_captions(whisper_model: Whisper, audio_file, captions_file=""):
@@ -41,37 +42,41 @@ def add_captions_to_video(caption_segments, video_file):
         stroke_color="black",
         stroke_width=8,
         method="caption",
-        size=(int(video.w * 0.8), None),
+        size=(video.w, None),
+        text_align="center",
     )
 
     # Create the subtitles clip.
     subtitles = SubtitlesClip(subs, make_textclip=generator).with_position(
-        "center", "bottom"
+        ("center", video.h * 4 / 5)
     )
 
     # Composite the video with the subtitles overlay.
-    video_with_captions = CompositeVideoClip([video, subtitles])
+    video_with_captions = CompositeVideoClip([video, subtitles], size=video.size)
 
     # Write the final video file.
     video_with_captions.write_videofile(
         "output_video.mp4",
         fps=video.fps,
-        codec="mpeg4",  # Faster codec
+        temp_audiofile="temp-audio.m4a",
+        remove_temp=True,
+        codec="mpeg4",
         audio_codec="aac",
         preset="ultrafast",
-        threads=12,  # Adjust based on your CPU
-        bitrate="2000k",  # Lower bitrate
-        audio=False,  # Uncomment if you don't need audio
+        bitrate="5000k",
     )
 
 
 def main(video_file, captions_file):
     try:
-        print("trying")
-        model = whisper.load_model("base")
-        audio_file = VideoFileClip(video_file)
-        audio_file.audio.write_audiofile("audio_file.mp3")
-        caption_segments = generate_captions(model, "audio_file.mp3")
+        if not captions_file:
+            model = whisper.load_model("base")
+            audio_file = VideoFileClip(video_file)
+            audio_file.audio.write_audiofile("audio_file.mp3")
+            caption_segments = generate_captions(model, "audio_file.mp3")
+        else:
+            with open(captions_file, "r") as file:
+                caption_segments = json.load(file)
         add_captions_to_video(caption_segments, video_file)
         return
     except Exception as e:
